@@ -19,10 +19,16 @@ docker compose up --build
 
 # Types of Interceptors
 
-There are three types of interceptors, `exec`, `docker` and `http`.
+There are three types of interceptors:
+- `exec`, 
+- `docker` and 
+- `http`.
+
 Interceptors can run `before` a tool call or `after` a tool call`.
+
 Those which run run `before` have access to the full tool call request and
 can either let the call go through or bypass the call and return a custom response.
+
 Those which run run `after` have access to the tool call response.
 
 ## `exec`
