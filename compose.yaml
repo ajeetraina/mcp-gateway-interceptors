@@ -5,33 +5,28 @@ services:
       - MCP_HOST=http://gateway:9011/mcp
     depends_on:
       - gateway
-    restart: "no"
 
   gateway:
     build:
       dockerfile_inline: |
         FROM docker/mcp-gateway
-        RUN apk add jq curl
+        RUN apk add --no-cache jq
     command:
       - --transport=streaming
       - --servers=duckduckgo
-      - --verbose=true
+      - --verbose=false
       - --port=9011
-      # Fixed exec interceptor - saves input, logs, then outputs original
+      # Working exec interceptor that preserves data flow
       - --interceptor
-      - 'before:exec:cat > /tmp/input.json && jq -r ".params.arguments.query // \"No query\"" < /tmp/input.json | xargs echo "Query:" >&2 && cat /tmp/input.json'
+      - 'before:exec:sh -c "cat > /tmp/req.json; echo \"[EXEC] Query: $(jq -r .params.arguments.query < /tmp/req.json)\" >&2; cat /tmp/req.json"'
       - --interceptor
       - 'before:http:http://interceptor:8080/before'
       - --interceptor
       - 'after:http:http://interceptor:8080/after'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    ports:
-      - "9011:9011"
     depends_on:
       - interceptor
 
   interceptor:
     build: http
-    ports:
-      - "8080:8080"
