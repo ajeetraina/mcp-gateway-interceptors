@@ -4,9 +4,8 @@ services:
     environment:
       - MCP_HOST=http://gateway:9011/mcp
     depends_on:
-      gateway:
-        condition: service_started
-    restart: "no"  # Stop the restart loop
+      - gateway
+    restart: "no"
 
   gateway:
     build:
@@ -18,9 +17,9 @@ services:
       - --servers=duckduckgo
       - --verbose=true
       - --port=9011
-      # Simplified exec interceptor that just logs
+      # Fixed exec interceptor - saves input, logs, then outputs original
       - --interceptor
-      - 'before:exec:cat | tee /dev/stderr | jq -r ".params.arguments.query // \"No query\"" | xargs echo "Query:" >&2; cat'
+      - 'before:exec:cat > /tmp/input.json && jq -r ".params.arguments.query // \"No query\"" < /tmp/input.json | xargs echo "Query:" >&2 && cat /tmp/input.json'
       - --interceptor
       - 'before:http:http://interceptor:8080/before'
       - --interceptor
