@@ -1,34 +1,11 @@
-# Demonstrating Docker MCP Gateway Interceptors
+# Using the MCP Gateway with Docker Compose
 
-- The Docker MCP (Model Context Protocol) Gateway is a middleware layer that sits between AI assistants and the tools they interact with. 
-- It acts as a proxy that manages and controls how AI agents execute tool calls, providing a standardized interface for tool execution while adding powerful interception capabilities.
+This example shows how to call the MCP Gateway from a python client:
 
-## Purpose and Architecture of Interceptors
-
-Interceptors are middleware components that allow you to:
-
-- Monitor, modify, or bypass tool calls in real-time
-- Add logging, validation, or security checks
-- Transform requests and responses
-- Implement custom business logic without modifying the underlying tools
-
-
-## The Right Architecture
-
-```
-ALL requests → MCP Gateway (with interceptors) → Backend/Tools
-```
-
-## Prerequisite
-
-- Docker Desktop 4.43.X
-
-## Clone the repo
-
-```console
-git clone https://github.com/ajeetraina/mcp-gateway-interceptors
-cd  mcp-gateway-interceptors
-```
++ Doesn't rely on the MCP Toolkit UI. Can run anywhere, even if Docker Desktop is not available.
++ Defines the list of enabled servers from the gateway's command line, with `--server`
++ Uses the online Docker MCP Catalog hosted on http://desktop.docker.com/mcp/catalog/v2/catalog.yaml.
++ Uses the latest http streaming transport.
 
 ## How to run
 
@@ -38,16 +15,10 @@ docker compose up --build
 
 # Types of Interceptors
 
-There are three types of interceptors:
-- `exec`, 
-- `docker` and 
-- `http`.
-
+There are three types of interceptors, `exec`, `docker` and `http`.
 Interceptors can run `before` a tool call or `after` a tool call`.
-
 Those which run run `before` have access to the full tool call request and
 can either let the call go through or bypass the call and return a custom response.
-
 Those which run run `after` have access to the tool call response.
 
 ## `exec`
@@ -113,8 +84,5 @@ Trim down the tool's response text:
 ```yaml
 - --interceptor
 - after:exec:jq -c '.content[].text |= (.[:100])'
-
-
-
-
+```
 

@@ -10,14 +10,14 @@ services:
     build:
       dockerfile_inline: |
         FROM docker/mcp-gateway
+        RUN apk add --no-cache jq
     command:
       - --transport=streaming
       - --servers=duckduckgo
-      - --verbose=false
+      - --verbose=true
       - --port=9011
-      # Simple exec interceptor that just passes through
       - --interceptor
-      - 'before:exec:cat'
+      - 'before:exec:jq -r ".params.arguments.query" 2>/dev/null | xargs -I {} echo "============BEFORE==============: Query={}" >&2'
       - --interceptor
       - 'before:http:http://interceptor:8080/before'
       - --interceptor
