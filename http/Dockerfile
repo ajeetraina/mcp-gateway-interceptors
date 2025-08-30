@@ -1,11 +1,6 @@
-FROM golang:1.21-alpine AS builder
+FROM python:3.9-alpine
 WORKDIR /app
-COPY . .
-RUN go mod init interceptor 2>/dev/null || true
-RUN go build -o interceptor main.go
-
-FROM alpine:latest
-RUN apk add --no-cache ca-certificates
-COPY --from=builder /app/interceptor /interceptor
+RUN pip install flask
+COPY interceptor.py .
 EXPOSE 8080
-CMD ["/interceptor"]
+CMD ["python", "interceptor.py"]
