@@ -1,8 +1,11 @@
-FROM golang:1.23-alpine@sha256:9a425d78a8257fc92d41ad979d38cb54005bac3fdefbdadde868e004eccbb898 AS build
+FROM golang:1.21-alpine AS builder
 WORKDIR /app
-COPY main.go ./
-RUN go build -o /main main.go
+COPY . .
+RUN go mod init interceptor 2>/dev/null || true
+RUN go build -o interceptor main.go
 
-FROM alpine:3.22@sha256:4bcff63911fcb4448bd4fdacec207030997caf25e9bea4045fa6c8c44de311d1
-COPY --from=build /main /
-ENTRYPOINT ["/main"]
+FROM alpine:latest
+RUN apk add --no-cache ca-certificates
+COPY --from=builder /app/interceptor /interceptor
+EXPOSE 8080
+CMD ["/interceptor"]
