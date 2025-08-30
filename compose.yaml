@@ -16,9 +16,9 @@ services:
       - --servers=duckduckgo
       - --verbose=false
       - --port=9011
-      # Working exec interceptor that preserves data flow
+      # Simpler exec interceptor that just logs and passes through
       - --interceptor
-      - 'before:exec:sh -c "cat > /tmp/req.json; echo \"[EXEC] Query: $(jq -r .params.arguments.query < /tmp/req.json)\" >&2; cat /tmp/req.json"'
+      - 'before:exec:tee >(jq -r ".params.arguments.query // \"No query\"" | xargs -I {} echo "[EXEC] Query: {}" >&2)'
       - --interceptor
       - 'before:http:http://interceptor:8080/before'
       - --interceptor
