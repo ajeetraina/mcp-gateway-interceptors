@@ -4,28 +4,50 @@ services:
     environment:
       - MCP_HOST=http://gateway:9011/mcp
     depends_on:
-      - gateway
+      gateway:
+        condition: service_healthy
+    # Add restart policy for testing
+    restart: on-failure
+    command: sh -c "sleep 2 && python main.py"
 
   gateway:
     build:
       dockerfile_inline: |
         FROM docker/mcp-gateway
-        RUN apk add jq
+        RUN apk add jq curl
     command:
       - --transport=streaming
       - --servers=duckduckgo
-      - --verbose=false
+      - --verbose=true  # Enable verbose for debugging
       - --port=9011
       - --interceptor
-      - 'before:exec:echo ============BEFORE==============: Query=$(jq -r ".params.arguments.query") >&2'
+      - 'before:exec:echo "============BEFORE==============" >&2 && cat | tee /tmp/request.json | jq -r ".params.arguments.query // \"No query\"" | xargs -I {} echo "Query: {}" >&2 && cat /tmp/request.json'
       - --interceptor
       - 'before:http:http://interceptor:8080/before'
       - --interceptor
       - 'after:http:http://interceptor:8080/after'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "9011:9011"  # Expose gateway port for testing
     depends_on:
-      - interceptor
+      interceptor:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9011"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   interceptor:
     build: http
+    ports:
+      - "8080:8080"  # Expose for testing
+    environment:
+      - LOG_LEVEL=DEBUG
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
