@@ -14,13 +14,25 @@ func main() {
         var data map[string]interface{}
         json.Unmarshal(body, &data)
         
-        // Log the call
+        // Extract query
+        query := "unknown"
+        tool := "unknown"
+        if t, ok := data["tool"].(string); ok {
+            tool = t
+        }
         if params, ok := data["params"].(map[string]interface{}); ok {
             if args, ok := params["arguments"].(map[string]interface{}); ok {
-                log.Printf("[HTTP-BEFORE] Tool: %v, Query: %v", 
-                    data["tool"], args["query"])
+                if q, ok := args["query"].(string); ok {
+                    query = q
+                }
             }
         }
+        
+        log.Printf("============================================")
+        log.Printf("[INTERCEPTOR CHAIN - BEFORE]")
+        log.Printf("Tool: %s", tool)
+        log.Printf("Query: %s", query)
+        log.Printf("============================================")
         
         // Pass through unchanged
         w.Header().Set("Content-Type", "application/json")
@@ -33,16 +45,31 @@ func main() {
         var data map[string]interface{}
         json.Unmarshal(body, &data)
         
-        // Log results
+        resultCount := 0
         if content, ok := data["content"].([]interface{}); ok {
-            log.Printf("[HTTP-AFTER] Results: %d", len(content))
+            resultCount = len(content)
+            
+            // Show first result title if available
+            if resultCount > 0 {
+                if firstResult, ok := content[0].(map[string]interface{}); ok {
+                    if title, ok := firstResult["title"].(string); ok {
+                        log.Printf("[AFTER] First result: %s", title)
+                    }
+                }
+            }
         }
+        
+        log.Printf("============================================")
+        log.Printf("[INTERCEPTOR CHAIN - AFTER]")
+        log.Printf("Results returned: %d", resultCount)
+        log.Printf("============================================")
         
         // Pass through unchanged
         w.Header().Set("Content-Type", "application/json")
         w.Write(body)
     })
 
-    log.Println("Interceptor server started on :8080")
+    log.Println("🚀 Docker MCP Gateway Interceptor Started")
+    log.Println("📍 Ready to intercept tool calls")
     http.ListenAndServe(":8080", nil)
 }
