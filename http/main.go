@@ -1,58 +1,108 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
-	"log"
-	"net/http"
-	"os"
+    "encoding/json"
+    "fmt"
+    "io"
+    "log"
+    "net/http"
+    "os"
+    "time"
 )
 
-type CallToolRequest struct {
-	Params CallToolParams `json:"params"`
-}
-
-type CallToolParams struct {
-	Name      string `json:"name"`
-	Arguments any    `json:"arguments,omitempty"`
-}
-
-type CallToolResult struct {
-	Content []TextContent `json:"content"`
-	IsError bool          `json:"isError,omitempty"`
-}
-
-type TextContent struct {
-	Text string `json:"text"`
-}
-
 func main() {
-	http.HandleFunc("/before", func(w http.ResponseWriter, r *http.Request) {
-		var toolCall CallToolRequest
-		if err := json.NewDecoder(r.Body).Decode(&toolCall); err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
+    // Health check endpoint
+    http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+        w.WriteHeader(http.StatusOK)
+        w.Write([]byte("OK"))
+    })
 
-		fmt.Fprintf(os.Stderr, "Calling tool [%s] with arguments: %v", toolCall.Params.Name, toolCall.Params.Arguments)
+    // Before interceptor
+    http.HandleFunc("/before", func(w http.ResponseWriter, r *http.Request) {
+        body, err := io.ReadAll(r.Body)
+        if err != nil {
+            log.Printf("❌ Error reading request: %v", err)
+            http.Error(w, "Error reading request", http.StatusBadRequest)
+            return
+        }
 
-		// Here, instead of returning an empty 200 response, we could bypass the tool call
-		// totally and return our own response.
-		w.WriteHeader(http.StatusOK)
-	})
+        log.Printf("📥 BEFORE Interceptor received %d bytes", len(body))
+        
+        var data map[string]interface{}
+        if err := json.Unmarshal(body, &data); err != nil {
+            log.Printf("⚠️ JSON parse error: %v", err)
+            // Pass through anyway
+            w.Header().Set("Content-Type", "application/json")
+            w.Write(body)
+            return
+        }
 
-	http.HandleFunc("/after", func(w http.ResponseWriter, r *http.Request) {
-		var result CallToolResult
-		if err := json.NewDecoder(r.Body).Decode(&result); err != nil {
-			http.Error(w, "Invalid request body", http.StatusBadRequest)
-			return
-		}
+        // Extract query
+        query := "unknown"
+        if params, ok := data["params"].(map[string]interface{}); ok {
+            if args, ok := params["arguments"].(map[string]interface{}); ok {
+                if q, ok := args["query"].(string); ok {
+                    query = q
+                }
+            }
+        }
 
-		fmt.Fprintf(os.Stderr, "Tool gave a response of: %d characters", len(result.Content[0].Text))
-		w.WriteHeader(http.StatusOK)
-	})
+        log.Printf("🔵 BEFORE: Tool=%v, Query='%s'", data["tool"], query)
+        
+        // Add timestamp
+        data["intercepted_before"] = time.Now().Format(time.RFC3339)
+        
+        response, _ := json.Marshal(data)
+        w.Header().Set("Content-Type", "application/json")
+        w.Write(response)
+    })
 
-	if err := http.ListenAndServe(":8080", nil); err != nil {
-		log.Fatalln("Server failed:", err)
-	}
+    // After interceptor
+    http.HandleFunc("/after", func(w http.ResponseWriter, r *http.Request) {
+        body, err := io.ReadAll(r.Body)
+        if err != nil {
+            log.Printf("❌ Error reading response: %v", err)
+            http.Error(w, "Error reading response", http.StatusBadRequest)
+            return
+        }
+
+        log.Printf("📤 AFTER Interceptor received %d bytes", len(body))
+        
+        var data map[string]interface{}
+        if err := json.Unmarshal(body, &data); err != nil {
+            log.Printf("⚠️ JSON parse error in after: %v", err)
+            // Pass through anyway
+            w.Header().Set("Content-Type", "application/json")
+            w.Write(body)
+            return
+        }
+
+        // Count results
+        resultCount := 0
+        if content, ok := data["content"].([]interface{}); ok {
+            resultCount = len(content)
+        }
+
+        log.Printf("🟢 AFTER: Processed %d results", resultCount)
+        
+        // Add metadata
+        data["intercepted_after"] = time.Now().Format(time.RFC3339)
+        data["result_count"] = resultCount
+        
+        response, _ := json.Marshal(data)
+        w.Header().Set("Content-Type", "application/json")
+        w.Write(response)
+    })
+
+    port := os.Getenv("PORT")
+    if port == "" {
+        port = "8080"
+    }
+
+    log.Printf("🚀 Interceptor server starting on port %s", port)
+    log.Printf("📍 Endpoints: /health, /before, /after")
+    
+    if err := http.ListenAndServe(":"+port, nil); err != nil {
+        log.Fatal(err)
+    }
 }
