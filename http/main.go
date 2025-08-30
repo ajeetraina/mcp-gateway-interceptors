@@ -14,33 +14,45 @@ func main() {
     })
 
     http.HandleFunc("/before", func(w http.ResponseWriter, r *http.Request) {
-        body, _ := io.ReadAll(r.Body)
+        body, err := io.ReadAll(r.Body)
+        if err != nil {
+            log.Printf("Error reading request: %v", err)
+            http.Error(w, "Error", http.StatusInternalServerError)
+            return
+        }
         
+        // Log but don't modify
         var data map[string]interface{}
-        json.Unmarshal(body, &data)
-        
-        // Log the tool call
-        if params, ok := data["params"].(map[string]interface{}); ok {
-            if args, ok := params["arguments"].(map[string]interface{}); ok {
-                log.Printf("Calling tool [%v] with arguments: %v", data["tool"], args)
+        if err := json.Unmarshal(body, &data); err == nil {
+            if params, ok := data["params"].(map[string]interface{}); ok {
+                if args, ok := params["arguments"].(map[string]interface{}); ok {
+                    log.Printf("Calling tool [%v] with arguments: %v", data["tool"], args)
+                }
             }
         }
         
+        // CRITICAL: Pass through unchanged
         w.Header().Set("Content-Type", "application/json")
         w.Write(body)
     })
 
     http.HandleFunc("/after", func(w http.ResponseWriter, r *http.Request) {
-        body, _ := io.ReadAll(r.Body)
-        
-        var data map[string]interface{}
-        json.Unmarshal(body, &data)
-        
-        // Count results if available
-        if content, ok := data["content"].([]interface{}); ok {
-            log.Printf("Tool returned %d results", len(content))
+        body, err := io.ReadAll(r.Body)
+        if err != nil {
+            log.Printf("Error reading response: %v", err)
+            http.Error(w, "Error", http.StatusInternalServerError)
+            return
         }
         
+        // Log but don't modify
+        var data map[string]interface{}
+        if err := json.Unmarshal(body, &data); err == nil {
+            if content, ok := data["content"].([]interface{}); ok {
+                log.Printf("Tool returned %d results", len(content))
+            }
+        }
+        
+        // CRITICAL: Pass through unchanged
         w.Header().Set("Content-Type", "application/json")
         w.Write(body)
     })
