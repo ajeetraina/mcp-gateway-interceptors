@@ -5,8 +5,6 @@ import (
     "io"
     "log"
     "net/http"
-    "os"
-    "time"
 )
 
 func main() {
@@ -17,12 +15,11 @@ func main() {
 
     http.HandleFunc("/before", func(w http.ResponseWriter, r *http.Request) {
         body, _ := io.ReadAll(r.Body)
-        log.Printf("Calling tool with arguments: %s", string(body))
         
         var data map[string]interface{}
         json.Unmarshal(body, &data)
         
-        // Extract and log the query
+        // Log the tool call
         if params, ok := data["params"].(map[string]interface{}); ok {
             if args, ok := params["arguments"].(map[string]interface{}); ok {
                 log.Printf("Calling tool [%v] with arguments: %v", data["tool"], args)
@@ -30,18 +27,24 @@ func main() {
         }
         
         w.Header().Set("Content-Type", "application/json")
-        w.Write(body) // Pass through
+        w.Write(body)
     })
 
     http.HandleFunc("/after", func(w http.ResponseWriter, r *http.Request) {
         body, _ := io.ReadAll(r.Body)
-        log.Printf("Tool response: %d bytes", len(body))
+        
+        var data map[string]interface{}
+        json.Unmarshal(body, &data)
+        
+        // Count results if available
+        if content, ok := data["content"].([]interface{}); ok {
+            log.Printf("Tool returned %d results", len(content))
+        }
         
         w.Header().Set("Content-Type", "application/json")
-        w.Write(body) // Pass through
+        w.Write(body)
     })
 
-    port := "8080"
-    log.Printf("Starting interceptor on port %s", port)
-    http.ListenAndServe(":"+port, nil)
+    log.Println("Starting interceptor on port 8080")
+    log.Fatal(http.ListenAndServe(":8080", nil))
 }
