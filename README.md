@@ -1,5 +1,16 @@
 # Demonstrating Docker MCP Gateway Interceptors
 
+The interceptors are configurable filters that sit between AI clients and MCP tools, allowing you to inspect what tools are being called and with what data. 
+They're essentially middleware hooks that let MCP Horror Stories: The GitHub Prompt Injection Data Heist you inspect, modify, or block tool calls in real-time.
+
+The key insight from the GitHub attack prevention example is that interceptors work on MCP tool calls, not on general HTTP requests. When an AI agent makes its first GitHub tool call through the Gateway, the script records that repository in a session file. Any subsequent attempts to access a different repository get blocked with a security alert.
+
+## The Right Architecture
+
+```
+ALL requests → MCP Gateway (with interceptors) → Backend/Tools
+```
+
 ## Prerequisite
 
 - Docker Desktop 4.43.X
